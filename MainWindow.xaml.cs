@@ -21,6 +21,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly OptimizerService _optimizer = new();
     private readonly DispatcherTimer _telemetryTimer = new() { Interval = TimeSpan.FromMilliseconds(1400) };
+    private readonly DispatcherTimer _tweakEnforcerTimer = new() { Interval = TimeSpan.FromSeconds(12) };
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _cpuFrequencyCounter;
     private readonly PerformanceCounter? _cpuFrequencyPercentCounter;
@@ -78,6 +79,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private double? _latestCpuTempC;
     private double? _latestGpuTempC;
     private bool _isRefreshingTweakStates;
+    private bool _isEnforcingTweaks;
     private bool _suppressToggleEvents;
     private bool _isPingingFortniteServers;
     private DateTime _lastFortnitePingUtc = DateTime.MinValue;
@@ -128,6 +130,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SeedTweakCards();
 
         _telemetryTimer.Tick += (_, _) => RefreshTelemetry();
+        _tweakEnforcerTimer.Tick += async (_, _) => await EnforceEnabledTweaksAsync();
         Loaded += (_, _) =>
         {
             RefreshTelemetry();
@@ -136,6 +139,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             LoadFortniteRegionOptions();
             ReloadFortniteRegionState();
             _telemetryTimer.Start();
+            _tweakEnforcerTimer.Start();
             _ = RefreshTweakStatesAsync(showPopup: false);
         };
         Closing += MainWindow_Closing;
@@ -2514,6 +2518,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return tweakKey is "hardcore_service_trim" or "process_target_60_mode";
     }
 
+    private async Task EnforceEnabledTweaksAsync()
+    {
+        if (_isEnforcingTweaks || _tweakCards.Count == 0)
+        {
+            return;
+        }
+
+        _isEnforcingTweaks = true;
+        try
+        {
+            var activeKeys = _tweakCards
+                .Where(c => c.IsEnabled && IsRealtimeEnforceEligible(c.Key))
+                .Select(c => c.Key)
+                .ToArray();
+
+            foreach (var key in activeKeys)
+            {
+                try
+                {
+                    _ = await _optimizer.ApplyTweakToggleAsync(key, true);
+                }
+                catch
+                {
+                    // keep loop running for other tweaks
+                }
+            }
+        }
+        finally
+        {
+            _isEnforcingTweaks = false;
+        }
+    }
+
+    private static bool IsRealtimeEnforceEligible(string key)
+    {
+        return key switch
+        {
+            // one-shot helper tweaks that open UI/interactive flows and should not be re-fired every cycle
+            "startup_cleanup_assist" => false,
+            "nvidia_latency_profile" => false,
+            // has its own dedicated background worker in service layer
+            "process_target_60_mode" => false,
+            _ => true
+        };
+    }
+
     private static string? ExtractUpdaterPath(string text)
     {
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -2829,6 +2879,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         _telemetryTimer.Stop();
+        _tweakEnforcerTimer.Stop();
         _cpuCounter?.Dispose();
         _cpuFrequencyCounter?.Dispose();
         _cpuFrequencyPercentCounter?.Dispose();
