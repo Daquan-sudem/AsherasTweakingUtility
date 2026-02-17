@@ -6,6 +6,7 @@
         xmlns:local="clr-namespace:WinOptApp"
         mc:Ignorable="d"
         Title="Ashera's Tweaking Utility"
+        Icon="Assets/github-profile.ico"
         Height="760"
         Width="1280"
         MinHeight="700"
@@ -218,7 +219,14 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel>
-                    <TextBlock Foreground="#F7FBFF" FontSize="24" FontWeight="Bold" Text="Ashera's Tweaking Utility"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#2A4E7F" BorderThickness="1" Margin="0,0,8,0">
+                            <Border.Background>
+                                <ImageBrush ImageSource="Assets/github-profile.png" Stretch="UniformToFill"/>
+                            </Border.Background>
+                        </Border>
+                        <TextBlock Foreground="#F7FBFF" FontSize="24" FontWeight="Bold" Text="Ashera's Tweaking Utility" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Foreground="#A6BCD6" Margin="0,2,0,12" Text="Tweak and recover"/>
                 </StackPanel>
 
@@ -236,12 +244,27 @@
                     <Button Style="{StaticResource NavButtonStyle}" Content="App Optimizer" Click="AppOptimizerButton_Click"/>
                 </StackPanel>
 
-                <Border Grid.Row="3" CornerRadius="10" BorderBrush="#2A4E7F" BorderThickness="1" Background="#0E1A2D" Padding="10" Margin="0,10,0,0">
-                    <StackPanel>
-                        <TextBlock Foreground="#F2F7FF" FontWeight="SemiBold" Text="Safe Mode"/>
-                        <TextBlock Foreground="#A6BCD6" Margin="0,4,0,0" Text="All changes are rollback-ready."/>
-                    </StackPanel>
-                </Border>
+                <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                    <Border CornerRadius="10" BorderBrush="#2A4E7F" BorderThickness="1" Background="#0E1A2D" Padding="10">
+                        <StackPanel>
+                            <TextBlock Foreground="#F2F7FF" FontWeight="SemiBold" Text="Safe Mode"/>
+                            <TextBlock Foreground="#A6BCD6" Margin="0,4,0,0" Text="All changes are rollback-ready."/>
+                        </StackPanel>
+                    </Border>
+                    <Border CornerRadius="10" BorderBrush="#2A4E7F" BorderThickness="1" Background="#0E1A2D" Padding="10" Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#315782" BorderThickness="1" Margin="0,0,8,0">
+                                <Border.Background>
+                                    <ImageBrush ImageSource="Assets/github-profile.png" Stretch="UniformToFill"/>
+                                </Border.Background>
+                            </Border>
+                            <StackPanel>
+                                <TextBlock Foreground="#F2F7FF" FontWeight="SemiBold" Text="AsheraDev"/>
+                                <TextBlock Foreground="#A6BCD6" FontSize="11" Text="GitHub Profile"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
