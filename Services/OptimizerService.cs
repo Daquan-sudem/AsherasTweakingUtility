@@ -635,6 +635,12 @@ public sealed class OptimizerService
                         sb.AppendLine("Nudges and prompts policy updated.");
                         break;
 
+                    case "network_driver_optimize":
+                        sb.AppendLine(ToggleNetworkDriverOptimization(enabled));
+                        SetManagedState(tweakKey, enabled);
+                        sb.AppendLine("Restart required to fully apply NIC driver-level changes.");
+                        break;
+
                     case "low_latency_mode":
                         SetRegistryDword(
                             Registry.CurrentUser,
@@ -802,6 +808,7 @@ public sealed class OptimizerService
                 "amd_power_hold" => GetManagedState(tweakKey),
                 "amd_service_trim" => GetManagedState(tweakKey),
                 "nudge_blocker" => GetRegistryDword(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement", "ScoobeSystemSettingEnabled") == 0,
+                "network_driver_optimize" => GetManagedState(tweakKey),
                 "low_latency_mode" =>
                     GetRegistryDword(Registry.CurrentUser, @"System\GameConfigStore", "GameDVR_Enabled") == 0 &&
                     GetRegistryDword(Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled") == 0 &&
@@ -1054,6 +1061,28 @@ public sealed class OptimizerService
         }
 
         return changed == 0 ? "No AMD services found." : $"AMD service start mode updated for {changed} services.";
+    }
+
+    private static string ToggleNetworkDriverOptimization(bool enable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required for network driver optimization.";
+        }
+
+        var interruptModeration = enable ? "Disabled" : "Enabled";
+        var eee = enable ? "Off" : "On";
+        var powerToggle = enable ? "Disabled" : "Enabled";
+        var script =
+            "$adapters = Get-NetAdapter -Physical -ErrorAction SilentlyContinue;" +
+            "foreach ($a in $adapters) {" +
+            $"try {{ Set-NetAdapterPowerManagement -Name $a.Name -AllowComputerToTurnOffDevice {powerToggle} -ErrorAction Stop }} catch {{ }};" +
+            $"try {{ Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName 'Interrupt Moderation' -DisplayValue '{interruptModeration}' -NoRestart -ErrorAction Stop }} catch {{ }};" +
+            $"try {{ Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName 'Energy-Efficient Ethernet' -DisplayValue '{eee}' -NoRestart -ErrorAction Stop }} catch {{ }};" +
+            "}";
+
+        var result = RunProcess("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -Command \"{script}\"");
+        return string.IsNullOrWhiteSpace(result) ? "Network driver optimization command completed." : result;
     }
 
     private static string RunProcess(string fileName, string arguments)

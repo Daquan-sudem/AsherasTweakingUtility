@@ -700,6 +700,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             $"{item.Title} {(enabled ? "enabled" : "disabled")}",
             $"{item.Title} toggle failed");
 
+        if (IsRestartRequiredTweak(item.Key))
+        {
+            var msg = "Restart required for this tweak to fully apply.";
+            StatusText = $"{item.Title} updated (restart required)";
+            OutputTextBox.Text = $"{OutputTextBox.Text}\n\n{msg}";
+            MessageBox.Show(msg, "Restart Required", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
         _ = RefreshTweakStatesAsync(showPopup: false);
     }
 
@@ -1070,6 +1078,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Key = "low_latency_mode",
             Title = "Low Latency Mode",
             Description = "Applies scheduler, network throttling, and DVR-related settings to reduce system-side input and frame delay.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "network_driver_optimize",
+            Title = "Network Driver Optimize",
+            Description = "Disables common NIC power-saving/latency features and applies gaming-friendly network adapter settings.",
             WarningText = "1 WARNING"
         });
         _tweakCards.Add(new TweakCardItem
@@ -1814,6 +1829,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsDashboardVisible = false;
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = true;
+    }
+
+    private static bool IsRestartRequiredTweak(string tweakKey)
+    {
+        return tweakKey is "fast_startup_off" or "smb1_off" or "network_driver_optimize";
     }
 
     private static double ClampPercent(double value)
