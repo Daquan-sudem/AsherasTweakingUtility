@@ -2509,6 +2509,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static string? ExtractStatusTag(string text)
     {
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "UP_TO_DATE",
+            "UPDATE_AVAILABLE",
+            "UPDATE_CHECK_FAILED",
+            "UPDATE_UNKNOWN",
+            "READY_FOR_RESTART"
+        };
+
         foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = line.Trim();
@@ -2517,7 +2526,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 var idx = trimmed.IndexOf(':');
                 if (idx >= 0 && idx < trimmed.Length - 1)
                 {
-                    return trimmed[(idx + 1)..].Trim();
+                    var raw = trimmed[(idx + 1)..].Trim();
+                    var normalized = raw
+                        .ToUpperInvariant()
+                        .Replace(' ', '_')
+                        .Replace('.', '_')
+                        .Replace('-', '_');
+                    while (normalized.Contains("__", StringComparison.Ordinal))
+                    {
+                        normalized = normalized.Replace("__", "_", StringComparison.Ordinal);
+                    }
+
+                    normalized = normalized.Trim('_');
+                    if (known.Contains(normalized))
+                    {
+                        return normalized;
+                    }
                 }
             }
         }

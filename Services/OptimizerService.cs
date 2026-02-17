@@ -87,13 +87,13 @@ public sealed class OptimizerService
         if (localSize == remote.size)
         {
             sb.AppendLine();
-            sb.AppendLine("Status: Up to date.");
+            sb.AppendLine("Result: Up to date.");
             sb.AppendLine("STATUS: UP_TO_DATE");
         }
         else
         {
             sb.AppendLine();
-            sb.AppendLine("Status: Update available.");
+            sb.AppendLine("Result: Update available.");
             sb.AppendLine($"Download: {remote.download_url}");
             sb.AppendLine("STATUS: UPDATE_AVAILABLE");
         }
