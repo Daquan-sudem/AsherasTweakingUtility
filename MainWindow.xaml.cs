@@ -621,7 +621,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
     {
-        await ExecuteActionAsync("Downloading update...", _optimizer.DownloadLatestUpdateAsync, "Update download complete", "Update download failed");
+        SetBusy("Preparing in-place update...");
+        try
+        {
+            var result = await _optimizer.DownloadLatestUpdateAsync();
+            OutputTextBox.Text = result;
+
+            if (!result.Contains("STATUS: READY_FOR_RESTART", StringComparison.Ordinal))
+            {
+                StatusText = "Update download complete";
+                return;
+            }
+
+            var updaterPath = ExtractUpdaterPath(result);
+            if (string.IsNullOrWhiteSpace(updaterPath) || !File.Exists(updaterPath))
+            {
+                StatusText = "Update prepared, but updater script missing";
+                return;
+            }
+
+            var choice = MessageBox.Show(
+                "Update is ready. The app will close, update itself, and reopen. Continue now?",
+                "Install Update",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (choice != MessageBoxResult.Yes)
+            {
+                StatusText = "Update ready (pending install)";
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = updaterPath,
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            OutputTextBox.Text = $"Update download failed:\n{ex.Message}";
+            StatusText = "Update download failed";
+        }
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e)
@@ -2031,6 +2075,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "memory_integrity_off" or
             "gpu_msi_mode" or
             "hpet_tune_off";
+    }
+
+    private static string? ExtractUpdaterPath(string text)
+    {
+        foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("Updater script:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var idx = trimmed.IndexOf(':');
+            if (idx < 0 || idx == trimmed.Length - 1)
+            {
+                return null;
+            }
+
+            return trimmed[(idx + 1)..].Trim();
+        }
+
+        return null;
     }
 
     private static double ClampPercent(double value)

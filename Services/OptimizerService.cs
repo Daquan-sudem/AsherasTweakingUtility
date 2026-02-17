@@ -95,27 +95,45 @@ public sealed class OptimizerService
             return sb.ToString();
         }
 
-        var downloadsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Downloads");
-        Directory.CreateDirectory(downloadsDir);
+        var currentExe = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(currentExe) || !currentExe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.AppendLine("In-place update requires running from the packaged EXE.");
+            return sb.ToString();
+        }
 
-        var targetPath = Path.Combine(
-            downloadsDir,
-            $"AsherasTweakingUtility-update-{DateTime.Now:yyyyMMdd-HHmmss}.exe");
+        var appDir = Path.GetDirectoryName(currentExe)!;
+        var stagingPath = Path.Combine(appDir, $"AsherasTweakingUtility-update-{DateTime.Now:yyyyMMdd-HHmmss}.new");
+        var updaterPath = Path.Combine(Path.GetTempPath(), $"AsherasTU-updater-{DateTime.Now:yyyyMMdd-HHmmss}.cmd");
 
         using var response = await UpdateClient.GetAsync(remote.download_url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         await using (var source = await response.Content.ReadAsStreamAsync())
-        await using (var destination = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var destination = new FileStream(stagingPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await source.CopyToAsync(destination);
         }
 
-        sb.AppendLine("Update downloaded successfully.");
-        sb.AppendLine($"Saved to: {targetPath}");
-        sb.AppendLine("Close this app and run the downloaded EXE to update.");
+        var script = string.Join(Environment.NewLine,
+            "@echo off",
+            "setlocal",
+            "timeout /t 2 /nobreak >nul",
+            ":retry",
+            $"copy /y \"{stagingPath}\" \"{currentExe}\" >nul 2>&1",
+            "if errorlevel 1 (",
+            "  timeout /t 1 /nobreak >nul",
+            "  goto retry",
+            ")",
+            $"start \"\" \"{currentExe}\"",
+            $"del /f /q \"{stagingPath}\" >nul 2>&1",
+            "del /f /q \"%~f0\" >nul 2>&1");
+        File.WriteAllText(updaterPath, script, Encoding.ASCII);
+
+        sb.AppendLine("In-place update prepared.");
+        sb.AppendLine($"Staged binary: {stagingPath}");
+        sb.AppendLine($"Updater script: {updaterPath}");
+        sb.AppendLine("STATUS: READY_FOR_RESTART");
         return sb.ToString();
     }
     public Task<string> AnalyzeAsync()
