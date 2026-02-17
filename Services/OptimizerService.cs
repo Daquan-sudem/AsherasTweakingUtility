@@ -155,8 +155,7 @@ public sealed class OptimizerService
 
         try
         {
-            var appDir = Path.GetDirectoryName(currentExe)!;
-            var stagingPath = Path.Combine(appDir, $"AsherasTweakingUtility-update-{DateTime.Now:yyyyMMdd-HHmmss}.new");
+            var stagingPath = Path.Combine(Path.GetTempPath(), $"AsherasTweakingUtility-update-{DateTime.Now:yyyyMMdd-HHmmss}.exe");
             var updaterPath = Path.Combine(Path.GetTempPath(), $"AsherasTU-updater-{DateTime.Now:yyyyMMdd-HHmmss}.cmd");
 
             using var response = await UpdateClient.GetAsync(remote.download_url, HttpCompletionOption.ResponseHeadersRead);
@@ -171,21 +170,29 @@ public sealed class OptimizerService
             var script = string.Join(Environment.NewLine,
                 "@echo off",
                 "setlocal",
+                "set retries=0",
                 "timeout /t 2 /nobreak >nul",
                 ":retry",
                 $"copy /y \"{stagingPath}\" \"{currentExe}\" >nul 2>&1",
                 "if errorlevel 1 (",
+                "  set /a retries+=1",
+                "  if %retries% geq 20 goto fallback",
                 "  timeout /t 1 /nobreak >nul",
                 "  goto retry",
                 ")",
                 $"start \"\" \"{currentExe}\"",
                 $"del /f /q \"{stagingPath}\" >nul 2>&1",
+                "goto end",
+                ":fallback",
+                $"start \"\" \"{stagingPath}\"",
+                ":end",
                 "del /f /q \"%~f0\" >nul 2>&1");
             File.WriteAllText(updaterPath, script, Encoding.ASCII);
 
             sb.AppendLine("In-place update prepared.");
             sb.AppendLine($"Staged binary: {stagingPath}");
             sb.AppendLine($"Updater script: {updaterPath}");
+            sb.AppendLine("If overwrite fails, updater will launch the new EXE directly from temp.");
             sb.AppendLine("STATUS: READY_FOR_RESTART");
             return sb.ToString();
         }
