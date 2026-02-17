@@ -149,6 +149,8 @@
             <Setter Property="Background" Value="#0D1728"/>
             <Setter Property="Foreground" Value="#EAF4FF"/>
             <Setter Property="TextElement.Foreground" Value="#EAF4FF"/>
+            <Setter Property="TextBox.Foreground" Value="#EAF4FF"/>
+            <Setter Property="TextBox.Background" Value="#0D1728"/>
             <Setter Property="BorderBrush" Value="#315782"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,5"/>
@@ -156,6 +158,8 @@
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="IsEditable" Value="True"/>
+            <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="ItemContainerStyle">
                 <Setter.Value>
                     <Style TargetType="ComboBoxItem">
@@ -458,11 +462,13 @@
                         <ComboBox Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" x:Name="ControllerDeviceComboBox"
                                   Style="{StaticResource DarkComboBoxStyle}"
                                   Margin="8,0,8,0"
+                                  Foreground="#EAF4FF"
+                                  Background="#0D1728"
                                   VerticalContentAlignment="Center"
                                   DisplayMemberPath="DisplayName"
                                   SelectedValuePath="InstanceId"
                                   SelectionChanged="ControllerDeviceComboBox_SelectionChanged"/>
-                        <ComboBox Grid.Row="0" Grid.Column="2" Grid.RowSpan="2" x:Name="PollingRateComboBox" Style="{StaticResource DarkComboBoxStyle}" Margin="8,0,8,0" VerticalContentAlignment="Center"/>
+                        <ComboBox Grid.Row="0" Grid.Column="2" Grid.RowSpan="2" x:Name="PollingRateComboBox" Style="{StaticResource DarkComboBoxStyle}" Margin="8,0,8,0" VerticalContentAlignment="Center" Foreground="#EAF4FF" Background="#0D1728"/>
                         <Button Grid.Row="0" Grid.Column="3" Grid.RowSpan="2" Margin="8,0,8,0" Style="{StaticResource ActionButtonStyle}" Content="Apply Rate" Click="ApplyControllerPollingButton_Click"/>
                         <Button Grid.Row="0" Grid.Column="4" Grid.RowSpan="2" Margin="8,0,0,0" Style="{StaticResource ActionButtonStyle}" Content="Refresh" Click="RefreshControllerDevicesButton_Click"/>
                     </Grid>
@@ -655,6 +661,78 @@
                     </Border>
                 </Grid>
                 </ScrollViewer>
+            </Border>
+
+            <Border Grid.Row="2"
+                    Background="{StaticResource PanelBg}"
+                    BorderBrush="{StaticResource PanelBorder}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    Padding="14"
+                    Margin="0,0,0,14"
+                    Visibility="{Binding IsAppOptimizerVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Foreground="#F7FBFF" FontSize="22" FontWeight="SemiBold" Text="App Optimizer"/>
+                    <WrapPanel Grid.Row="1" Margin="0,10,0,8">
+                        <Button Style="{StaticResource ActionButtonStyle}" Content="Refresh List" Click="RefreshAppOptimizerButton_Click"/>
+                        <Button Style="{StaticResource ActionButtonStyle}" Content="Guide Selected" Click="GuideSelectedAppsButton_Click"/>
+                        <Button Style="{StaticResource ActionButtonStyle}" Content="Open Apps &amp; Features" Click="OpenAppsFeaturesButton_Click"/>
+                        <Button Style="{StaticResource ActionButtonStyle}" Content="Open Startup Apps" Click="OpenStartupAppsButton_Click"/>
+                    </WrapPanel>
+
+                    <DataGrid Grid.Row="2"
+                              x:Name="AppOptimizerDataGrid"
+                              Margin="0,4,0,0"
+                              AutoGenerateColumns="False"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserResizeRows="False"
+                              IsReadOnly="False"
+                              ItemsSource="{Binding AppOptimizationItems}"
+                              RowHeaderWidth="0"
+                              GridLinesVisibility="Horizontal"
+                              Background="#0A1322"
+                              Foreground="#EAF4FF"
+                              AlternatingRowBackground="#0E1D33"
+                              BorderBrush="#29476F"
+                              BorderThickness="1">
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Pick" Binding="{Binding IsSelected, Mode=TwoWay}" Width="56"/>
+                            <DataGridTemplateColumn Header="i" Width="44">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Width="22" Height="22" CornerRadius="11" Background="#163153" BorderBrush="#315782" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding IconText}" Foreground="#DCEBFF" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="App" Binding="{Binding Name}" Width="2*"/>
+                            <DataGridTextColumn Header="Recommended Action" Binding="{Binding ActionLabel}" Width="2*"/>
+                            <DataGridTextColumn Header="State" Binding="{Binding StateText}" Width="*"/>
+                            <DataGridTextColumn Header="Why" Binding="{Binding Notes}" Width="2.2*"/>
+                            <DataGridTemplateColumn Header="Target" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Open"
+                                                Padding="8,4"
+                                                Margin="4,2"
+                                                Style="{StaticResource ActionButtonStyle}"
+                                                Tag="{Binding}"
+                                                Click="OpenAppTargetButton_Click"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </Border>
 
             <Border Grid.Row="3"

@@ -61,6 +61,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isDashboardVisible = true;
     private bool _isGeneralTweaksVisible;
     private bool _isGameProfilesVisible;
+    private bool _isAppOptimizerVisible;
     private DateTime _lastTweakStateRefreshUtc = DateTime.MinValue;
     private DateTime _lastGpuRefreshUtc = DateTime.MinValue;
     private DateTime _lastTempRefreshUtc = DateTime.MinValue;
@@ -73,6 +74,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly ObservableCollection<ControllerDeviceItem> _controllerDevices = [];
     private readonly ObservableCollection<FortniteRegionItem> _fortniteRegions = [];
     private readonly ObservableCollection<FortniteServerPingItem> _fortniteServerPings = [];
+    private readonly ObservableCollection<AppOptimizationItem> _appOptimizationItems = [];
     private double? _latestCpuTempC;
     private double? _latestGpuTempC;
     private bool _isRefreshingTweakStates;
@@ -538,6 +540,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     public ObservableCollection<FortniteServerPingItem> FortniteServerPings => _fortniteServerPings;
+    public ObservableCollection<AppOptimizationItem> AppOptimizationItems => _appOptimizationItems;
 
     public string SystemSpecsText
     {
@@ -595,6 +598,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _isGameProfilesVisible = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsAppOptimizerVisible
+    {
+        get => _isAppOptimizerVisible;
+        private set
+        {
+            if (_isAppOptimizerVisible == value)
+            {
+                return;
+            }
+
+            _isAppOptimizerVisible = value;
             OnPropertyChanged();
         }
     }
@@ -728,9 +746,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         await ExecuteActionAsync("Reviewing startup apps...", _optimizer.GetStartupOptimizationReportAsync, "Startup report ready", "Startup report failed");
     }
 
-    private async void AppOptimizerButton_Click(object sender, RoutedEventArgs e)
+    private void AppOptimizerButton_Click(object sender, RoutedEventArgs e)
     {
-        await ExecuteActionAsync("Reviewing active apps...", _optimizer.GetAppOptimizationReportAsync, "App report ready", "App report failed");
+        SetAppOptimizerView();
+        LoadAppOptimizerItems();
+        StatusText = "App Optimizer";
+        OutputTextBox.Text = "App Optimizer view active. Select app rows, then click Guide Selected.";
+    }
+
+    private void RefreshAppOptimizerButton_Click(object sender, RoutedEventArgs e)
+    {
+        LoadAppOptimizerItems();
+        StatusText = "App list refreshed";
+    }
+
+    private void GuideSelectedAppsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _appOptimizationItems.FirstOrDefault(x => x.IsSelected);
+        if (selected is null)
+        {
+            StatusText = "Pick at least one app first";
+            OutputTextBox.Text = "No app selected. Use the Pick checkbox in App Optimizer.";
+            return;
+        }
+
+        OpenTargetUri(selected.TargetUri);
+        MoveCursorToAppItem(selected);
+        StatusText = $"Guide opened for {selected.Name}";
+        OutputTextBox.Text =
+            "App Optimizer Guide\n" +
+            "===================\n" +
+            $"Selected: {selected.Name}\n" +
+            $"Action: {selected.ActionLabel}\n" +
+            $"State: {selected.StateText}\n" +
+            $"Notes: {selected.Notes}";
+    }
+
+    private void OpenAppTargetButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: AppOptimizationItem item })
+        {
+            return;
+        }
+
+        OpenTargetUri(item.TargetUri);
+        StatusText = $"Opened target for {item.Name}";
+    }
+
+    private void OpenAppsFeaturesButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenTargetUri("ms-settings:appsfeatures");
+        StatusText = "Opened Apps & Features";
+    }
+
+    private void OpenStartupAppsButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenTargetUri("ms-settings:startupapps");
+        StatusText = "Opened Startup Apps";
     }
 
     private async void TweakToggle_Changed(object sender, RoutedEventArgs e)
@@ -2102,6 +2174,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsDashboardVisible = true;
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = false;
+        IsAppOptimizerVisible = false;
     }
 
     private void SetGeneralTweaksView()
@@ -2109,6 +2182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsDashboardVisible = false;
         IsGeneralTweaksVisible = true;
         IsGameProfilesVisible = false;
+        IsAppOptimizerVisible = false;
     }
 
     private void SetGameProfilesView()
@@ -2116,6 +2190,137 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsDashboardVisible = false;
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = true;
+        IsAppOptimizerVisible = false;
+    }
+
+    private void SetAppOptimizerView()
+    {
+        IsDashboardVisible = false;
+        IsGeneralTweaksVisible = false;
+        IsGameProfilesVisible = false;
+        IsAppOptimizerVisible = true;
+    }
+
+    private void LoadAppOptimizerItems()
+    {
+        _appOptimizationItems.Clear();
+        HashSet<string> running = new(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var p in Process.GetProcesses())
+            {
+                if (!string.IsNullOrWhiteSpace(p.ProcessName))
+                {
+                    running.Add(p.ProcessName.Trim());
+                }
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        var startupEntries = ReadStartupEntryNames();
+        foreach (var def in GetAppRecommendations())
+        {
+            var isRunning = def.ProcessHints.Any(h => running.Contains(h));
+            var inStartup = startupEntries.Any(s => s.Contains(def.Name, StringComparison.OrdinalIgnoreCase));
+            var state = isRunning
+                ? "Running"
+                : inStartup ? "In startup" : "Not detected";
+
+            _appOptimizationItems.Add(new AppOptimizationItem
+            {
+                Name = def.Name,
+                ActionLabel = def.ActionLabel,
+                Notes = def.Notes,
+                TargetUri = def.TargetUri,
+                IconText = "i",
+                StateText = state
+            });
+        }
+    }
+
+    private static HashSet<string> ReadStartupEntryNames()
+    {
+        HashSet<string> names = [];
+        try
+        {
+            using var hkcu = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
+            using var hklm = Registry.LocalMachine.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false);
+            foreach (var key in new[] { hkcu, hklm })
+            {
+                if (key is null)
+                {
+                    continue;
+                }
+
+                foreach (var name in key.GetValueNames())
+                {
+                    names.Add(name);
+                }
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return names;
+    }
+
+    private static IEnumerable<AppRecommendationDefinition> GetAppRecommendations()
+    {
+        return
+        [
+            new AppRecommendationDefinition("OneDrive", "Disable startup / pause sync", "Stops background sync load while gaming.", "ms-settings:startupapps", ["OneDrive"]),
+            new AppRecommendationDefinition("Xbox Game Bar", "Disable overlays", "Overlay hooks can add overhead in some games.", "ms-settings:gaming-gamebar", ["GameBar", "XboxAppServices"]),
+            new AppRecommendationDefinition("Microsoft Teams", "Disable startup", "Reduces idle RAM/CPU usage.", "ms-settings:startupapps", ["ms-teams", "Teams"]),
+            new AppRecommendationDefinition("Discord", "Disable overlay if needed", "Overlay can cause frametime spikes on some systems.", "ms-settings:appsfeatures", ["Discord"]),
+            new AppRecommendationDefinition("Phone Link", "Disable background app", "Reduces background tasks and notifications.", "ms-settings:appsfeatures", ["PhoneExperienceHost"]),
+            new AppRecommendationDefinition("Steam Client WebHelper", "Close extra helper processes", "Can consume RAM/CPU with many browser tabs.", "ms-settings:appsfeatures", ["steamwebhelper"]),
+            new AppRecommendationDefinition("Epic Games Launcher", "Disable startup", "Avoids launcher background polling.", "ms-settings:startupapps", ["EpicGamesLauncher"]),
+            new AppRecommendationDefinition("Adobe Updater", "Disable startup", "Reduces periodic updater checks.", "ms-settings:startupapps", ["AdobeARM", "Creative Cloud"])
+        ];
+    }
+
+    private static void OpenTargetUri(string? uri)
+    {
+        if (string.IsNullOrWhiteSpace(uri))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    private void MoveCursorToAppItem(AppOptimizationItem item)
+    {
+        try
+        {
+            AppOptimizerDataGrid?.ScrollIntoView(item);
+            AppOptimizerDataGrid?.UpdateLayout();
+            if (AppOptimizerDataGrid?.ItemContainerGenerator.ContainerFromItem(item) is DataGridRow row)
+            {
+                var p = row.PointToScreen(new Point(Math.Max(10, row.ActualWidth - 24), Math.Max(8, row.ActualHeight / 2)));
+                SetCursorPos((int)p.X, (int)p.Y);
+            }
+        }
+        catch
+        {
+            // ignored
+        }
     }
 
     private static bool IsRestartRequiredTweak(string tweakKey)
@@ -2170,6 +2375,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern bool GlobalMemoryStatusEx([In, Out] MemoryStatusEx lpBuffer);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetCursorPos(int x, int y);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private sealed class MemoryStatusEx
@@ -2189,6 +2396,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public required string DisplayName { get; init; }
         public required string InstanceId { get; init; }
+    }
+
+    private sealed record AppRecommendationDefinition(
+        string Name,
+        string ActionLabel,
+        string Notes,
+        string TargetUri,
+        string[] ProcessHints);
+
+    public sealed class AppOptimizationItem : INotifyPropertyChanged
+    {
+        private bool _isSelected;
+
+        public required string Name { get; init; }
+        public required string ActionLabel { get; init; }
+        public required string Notes { get; init; }
+        public required string TargetUri { get; init; }
+        public required string IconText { get; init; }
+        public required string StateText { get; init; }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value)
+                {
+                    return;
+                }
+
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     private sealed class FortniteRegionItem
