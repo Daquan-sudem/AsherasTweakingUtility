@@ -60,6 +60,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _systemSpecsText = "Loading specs...";
     private bool _isDashboardVisible = true;
     private bool _isGeneralTweaksVisible;
+    private bool _isGameProfilesVisible;
     private DateTime _lastTweakStateRefreshUtc = DateTime.MinValue;
     private DateTime _lastGpuRefreshUtc = DateTime.MinValue;
     private DateTime _lastTempRefreshUtc = DateTime.MinValue;
@@ -577,6 +578,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool IsGameProfilesVisible
+    {
+        get => _isGameProfilesVisible;
+        private set
+        {
+            if (_isGameProfilesVisible == value)
+            {
+                return;
+            }
+
+            _isGameProfilesVisible = value;
+            OnPropertyChanged();
+        }
+    }
+
     private async void AnalyzeButton_Click(object sender, RoutedEventArgs e)
     {
         await ExecuteActionAsync("Analyzing...", _optimizer.AnalyzeAsync, "Analysis complete", "Analyze failed");
@@ -625,6 +641,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StatusText = "General Tweaks";
         OutputTextBox.Text = "General Tweaks view active. Toggle cards to apply or revert each tweak.";
         _ = RefreshTweakStatesAsync(showPopup: true);
+    }
+
+    private void GameProfilesButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetGameProfilesView();
+        ReloadFortniteRegionState();
+        StatusText = "Game Profiles";
+        OutputTextBox.Text = "Game Profiles view active. Configure per-game settings below.";
     }
 
     private async void SystemRestoreButton_Click(object sender, RoutedEventArgs e)
@@ -1775,12 +1799,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         IsDashboardVisible = true;
         IsGeneralTweaksVisible = false;
+        IsGameProfilesVisible = false;
     }
 
     private void SetGeneralTweaksView()
     {
         IsDashboardVisible = false;
         IsGeneralTweaksVisible = true;
+        IsGameProfilesVisible = false;
+    }
+
+    private void SetGameProfilesView()
+    {
+        IsDashboardVisible = false;
+        IsGeneralTweaksVisible = false;
+        IsGameProfilesVisible = true;
     }
 
     private static double ClampPercent(double value)
