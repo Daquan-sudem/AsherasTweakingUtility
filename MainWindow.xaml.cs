@@ -634,7 +634,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        await ExecuteActionAsync("Checking updates...", _optimizer.CheckForUpdateAsync, "Update check complete", "Update check failed");
+        SetBusy("Checking updates...");
+        try
+        {
+            var result = await _optimizer.CheckForUpdateAsync();
+            OutputTextBox.Text = result;
+
+            var status = ExtractStatusTag(result);
+            if (status == "UPDATE_AVAILABLE")
+            {
+                StatusText = "Update available";
+                MessageBox.Show("Update available. Click Download Update to install it in-place.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else if (status == "UP_TO_DATE")
+            {
+                StatusText = "App is up to date";
+                MessageBox.Show("You are already on the latest version.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else if (status == "UPDATE_CHECK_FAILED")
+            {
+                StatusText = "Update check failed";
+                MessageBox.Show("Update check failed. Check internet/GitHub access and try again.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                StatusText = "Update status unknown";
+                MessageBox.Show("Update check completed, but version comparison is unavailable in this run mode.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            OutputTextBox.Text = $"Update check failed:\n{ex.Message}";
+            StatusText = "Update check failed";
+            MessageBox.Show("Update check failed. See log output for details.", "Update Check", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private async void DownloadUpdateButton_Click(object sender, RoutedEventArgs e)
@@ -2353,6 +2386,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             return trimmed[(idx + 1)..].Trim();
+        }
+
+        return null;
+    }
+
+    private static string? ExtractStatusTag(string text)
+    {
+        foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("STATUS:", StringComparison.OrdinalIgnoreCase))
+            {
+                var idx = trimmed.IndexOf(':');
+                if (idx >= 0 && idx < trimmed.Length - 1)
+                {
+                    return trimmed[(idx + 1)..].Trim();
+                }
+            }
         }
 
         return null;

@@ -56,6 +56,7 @@ public sealed class OptimizerService
         if (remote is null || string.IsNullOrWhiteSpace(remote.download_url))
         {
             sb.AppendLine("Unable to read update metadata from GitHub.");
+            sb.AppendLine("STATUS: UPDATE_CHECK_FAILED");
             return sb.ToString();
         }
 
@@ -67,6 +68,7 @@ public sealed class OptimizerService
         {
             sb.AppendLine("Local executable path not found. Run packaged EXE for direct version comparison.");
             sb.AppendLine($"Download: {remote.download_url}");
+            sb.AppendLine("STATUS: UPDATE_UNKNOWN");
             return sb.ToString();
         }
 
@@ -74,6 +76,7 @@ public sealed class OptimizerService
         {
             sb.AppendLine("You are running from a development host. Packaged EXE comparison is unavailable.");
             sb.AppendLine($"Download: {remote.download_url}");
+            sb.AppendLine("STATUS: UPDATE_UNKNOWN");
             return sb.ToString();
         }
 
@@ -85,12 +88,14 @@ public sealed class OptimizerService
         {
             sb.AppendLine();
             sb.AppendLine("Status: Up to date.");
+            sb.AppendLine("STATUS: UP_TO_DATE");
         }
         else
         {
             sb.AppendLine();
             sb.AppendLine("Status: Update available.");
             sb.AppendLine($"Download: {remote.download_url}");
+            sb.AppendLine("STATUS: UPDATE_AVAILABLE");
         }
 
         return sb.ToString();
