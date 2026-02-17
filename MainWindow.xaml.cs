@@ -56,6 +56,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _temperatureDetailText = "Source: CPU | Sensor unavailable";
     private string _temperatureTrendText = "Trend: --";
     private string _controllerPollingStatusText = "Select a controller/USB device, choose polling rate, then apply.";
+    private string _fortniteRegionStatusText = "Fortnite region: waiting for config...";
     private string _systemSpecsText = "Loading specs...";
     private bool _isDashboardVisible = true;
     private bool _isGeneralTweaksVisible;
@@ -68,6 +69,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string _tempSource = "CPU";
     private readonly List<double> _tempHistory = [];
     private readonly ObservableCollection<ControllerDeviceItem> _controllerDevices = [];
+    private readonly ObservableCollection<FortniteRegionItem> _fortniteRegions = [];
     private double? _latestCpuTempC;
     private double? _latestGpuTempC;
     private bool _isRefreshingTweakStates;
@@ -124,6 +126,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RefreshTelemetry();
             UpdateTempSourceButtons();
             LoadControllerDevices();
+            LoadFortniteRegionOptions();
+            ReloadFortniteRegionState();
             _telemetryTimer.Start();
             _ = RefreshTweakStatesAsync(showPopup: false);
         };
@@ -509,6 +513,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _controllerPollingStatusText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string FortniteRegionStatusText
+    {
+        get => _fortniteRegionStatusText;
+        private set
+        {
+            if (_fortniteRegionStatusText == value)
+            {
+                return;
+            }
+
+            _fortniteRegionStatusText = value;
             OnPropertyChanged();
         }
     }
@@ -1562,6 +1581,196 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 : "Only profile saved. HIDUSBF filter driver keys were not writable (run as admin / install filter).");
     }
 
+    private void LoadFortniteRegionOptions()
+    {
+        if (_fortniteRegions.Count > 0)
+        {
+            return;
+        }
+
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "AUTO", DisplayName = "Auto (closest)" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "NAE", DisplayName = "North America East" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "NAC", DisplayName = "North America Central" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "NAW", DisplayName = "North America West" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "EU", DisplayName = "Europe" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "BR", DisplayName = "Brazil" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "ASIA", DisplayName = "Asia" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "OCE", DisplayName = "Oceania" });
+        _fortniteRegions.Add(new FortniteRegionItem { Code = "ME", DisplayName = "Middle East" });
+
+        FortniteRegionComboBox.ItemsSource = _fortniteRegions;
+        FortniteRegionComboBox.SelectedValue = "AUTO";
+    }
+
+    private void ReloadFortniteRegionState()
+    {
+        LoadFortniteRegionOptions();
+
+        var path = GetFortniteSettingsPath();
+        if (!File.Exists(path))
+        {
+            FortniteRegionStatusText = "Fortnite config not found yet. Launch Fortnite once, then reload.";
+            FortniteRegionComboBox.SelectedValue = "AUTO";
+            return;
+        }
+
+        var current = ReadFortnitePreferredRegion(path);
+        if (string.IsNullOrWhiteSpace(current))
+        {
+            FortniteRegionStatusText = $"Config found at {path}. Region not set; game will use Auto.";
+            FortniteRegionComboBox.SelectedValue = "AUTO";
+            return;
+        }
+
+        var normalized = current.Trim().ToUpperInvariant();
+        var known = _fortniteRegions.Any(r => r.Code == normalized);
+        FortniteRegionComboBox.SelectedValue = known ? normalized : "AUTO";
+        FortniteRegionStatusText = known
+            ? $"Current Fortnite region: {normalized}"
+            : $"Current Fortnite region in config: {normalized} (unknown code)";
+    }
+
+    private void ReloadFortniteRegionButton_Click(object sender, RoutedEventArgs e)
+    {
+        ReloadFortniteRegionState();
+        StatusText = "Fortnite region reloaded";
+    }
+
+    private void SuggestFortniteRegionButton_Click(object sender, RoutedEventArgs e)
+    {
+        LoadFortniteRegionOptions();
+        var suggested = SuggestClosestFortniteRegion();
+        FortniteRegionComboBox.SelectedValue = suggested;
+        FortniteRegionStatusText = $"Suggested region based on local timezone: {suggested}";
+        StatusText = "Fortnite region suggested";
+    }
+
+    private void ApplyFortniteRegionButton_Click(object sender, RoutedEventArgs e)
+    {
+        LoadFortniteRegionOptions();
+        var code = (FortniteRegionComboBox.SelectedValue?.ToString() ?? "AUTO").Trim().ToUpperInvariant();
+        if (!_fortniteRegions.Any(r => r.Code == code))
+        {
+            code = "AUTO";
+        }
+
+        var path = GetFortniteSettingsPath();
+        var folder = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(folder))
+        {
+            Directory.CreateDirectory(folder);
+        }
+
+        var lines = File.Exists(path)
+            ? File.ReadAllLines(path).ToList()
+            : new List<string>();
+
+        var keyIndex = lines.FindIndex(l => l.TrimStart().StartsWith("PreferredRegion=", StringComparison.OrdinalIgnoreCase));
+        if (keyIndex >= 0)
+        {
+            lines[keyIndex] = $"PreferredRegion={code}";
+        }
+        else
+        {
+            if (lines.Count > 0 && !string.IsNullOrWhiteSpace(lines[^1]))
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.Add("[/Script/FortniteGame.FortGameUserSettings]");
+            lines.Add($"PreferredRegion={code}");
+        }
+
+        File.WriteAllLines(path, lines);
+        FortniteRegionStatusText = $"Applied Fortnite region: {code}. Restart Fortnite to take effect.";
+        StatusText = "Fortnite region updated";
+        OutputTextBox.Text =
+            "Fortnite Region\n" +
+            "======================================================================\n" +
+            $"Config: {path}\n" +
+            $"PreferredRegion: {code}\n" +
+            "Restart Fortnite to apply the new server region.";
+    }
+
+    private static string GetFortniteSettingsPath()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FortniteGame",
+            "Saved",
+            "Config",
+            "WindowsClient",
+            "GameUserSettings.ini");
+    }
+
+    private static string? ReadFortnitePreferredRegion(string path)
+    {
+        foreach (var line in File.ReadLines(path))
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.StartsWith("PreferredRegion=", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var idx = trimmed.IndexOf('=');
+            if (idx < 0 || idx == trimmed.Length - 1)
+            {
+                return null;
+            }
+
+            return trimmed[(idx + 1)..].Trim();
+        }
+
+        return null;
+    }
+
+    private static string SuggestClosestFortniteRegion()
+    {
+        var tz = TimeZoneInfo.Local.Id.ToLowerInvariant();
+        if (tz.Contains("eastern"))
+        {
+            return "NAE";
+        }
+
+        if (tz.Contains("central"))
+        {
+            return "NAC";
+        }
+
+        if (tz.Contains("mountain") || tz.Contains("pacific") || tz.Contains("alaska") || tz.Contains("hawai"))
+        {
+            return "NAW";
+        }
+
+        if (tz.Contains("europe") || tz.Contains("gmt"))
+        {
+            return "EU";
+        }
+
+        if (tz.Contains("australia") || tz.Contains("new zealand"))
+        {
+            return "OCE";
+        }
+
+        if (tz.Contains("tokyo") || tz.Contains("korea") || tz.Contains("china") || tz.Contains("singapore"))
+        {
+            return "ASIA";
+        }
+
+        if (tz.Contains("brazil") || tz.Contains("sa eastern"))
+        {
+            return "BR";
+        }
+
+        if (tz.Contains("arab") || tz.Contains("middle east"))
+        {
+            return "ME";
+        }
+
+        return "AUTO";
+    }
+
     private void SetDashboardView()
     {
         IsDashboardVisible = true;
@@ -1610,6 +1819,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public required string DisplayName { get; init; }
         public required string InstanceId { get; init; }
+    }
+
+    private sealed class FortniteRegionItem
+    {
+        public required string Code { get; init; }
+        public required string DisplayName { get; init; }
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
