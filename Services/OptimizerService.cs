@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -27,6 +28,21 @@ public sealed class OptimizerService
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "WinOptApp",
         "managed-tweaks.json");
+
+    static OptimizerService()
+    {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try
+            {
+                _ = NtSetTimerResolution(5000, false, out _);
+            }
+            catch
+            {
+                // ignored
+            }
+        };
+    }
 
     public async Task<string> CheckForUpdateAsync()
     {
@@ -709,6 +725,76 @@ public sealed class OptimizerService
                         SetManagedState(tweakKey, enabled);
                         break;
 
+                    case "wu_tournament_mode":
+                        sb.AppendLine(RunProcess("net", enabled ? "stop wuauserv" : "start wuauserv"));
+                        sb.AppendLine("Windows Update service toggled temporarily.");
+                        break;
+
+                    case "sysmain_off":
+                        if (!IsRunningAsAdmin())
+                        {
+                            sb.AppendLine("Admin required.");
+                        }
+                        else
+                        {
+                            sb.AppendLine(RunProcess("sc.exe", $"config SysMain start= {(enabled ? "disabled" : "auto")}"));
+                            sb.AppendLine(RunProcess("net", enabled ? "stop SysMain" : "start SysMain"));
+                        }
+                        break;
+
+                    case "search_indexing_off":
+                        if (!IsRunningAsAdmin())
+                        {
+                            sb.AppendLine("Admin required.");
+                        }
+                        else
+                        {
+                            sb.AppendLine(RunProcess("sc.exe", $"config WSearch start= {(enabled ? "disabled" : "delayed-auto")}"));
+                            sb.AppendLine(RunProcess("net", enabled ? "stop WSearch" : "start WSearch"));
+                        }
+                        break;
+
+                    case "selective_background_services_off":
+                        sb.AppendLine(ToggleSelectiveBackgroundServices(enabled));
+                        SetManagedState(tweakKey, enabled);
+                        break;
+
+                    case "network_hardcore_mode":
+                        sb.AppendLine(ToggleNetworkDriverOptimization(enabled));
+                        if (enabled)
+                        {
+                            sb.AppendLine(RunProcess("netsh", "winsock reset"));
+                            sb.AppendLine(RunProcess("netsh", "int ip reset"));
+                            sb.AppendLine(RunProcess("ipconfig", "/flushdns"));
+                            sb.AppendLine(RunProcess("ipconfig", "/release"));
+                            sb.AppendLine(RunProcess("ipconfig", "/renew"));
+                            sb.AppendLine("Network hardcore sequence applied. Restart recommended.");
+                        }
+                        else
+                        {
+                            sb.AppendLine("Network hardcore disabled. Adapter settings returned to safer defaults where supported.");
+                        }
+                        SetManagedState(tweakKey, enabled);
+                        break;
+
+                    case "power_hardcore_mode":
+                        sb.AppendLine(ApplyPowerHardcoreMode(enabled));
+                        break;
+
+                    case "timer_resolution_mode":
+                        sb.AppendLine(ToggleTimerResolutionMode(enabled));
+                        SetManagedState(tweakKey, enabled);
+                        break;
+
+                    case "background_apps_off":
+                        SetRegistryDword(
+                            Registry.CurrentUser,
+                            @"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications",
+                            "GlobalUserDisabled",
+                            enabled ? 1 : 0);
+                        sb.AppendLine("Background apps permission policy updated.");
+                        break;
+
                     case "low_latency_mode":
                         SetRegistryDword(
                             Registry.CurrentUser,
@@ -883,6 +969,14 @@ public sealed class OptimizerService
                 "hpet_tune_off" => IsHpetTuneOff(),
                 "startup_cleanup_assist" => GetManagedState(tweakKey),
                 "nvidia_latency_profile" => GetManagedState(tweakKey),
+                "wu_tournament_mode" => IsServiceStopped("wuauserv"),
+                "sysmain_off" => GetServiceStartMode("SysMain") == 4,
+                "search_indexing_off" => GetServiceStartMode("WSearch") == 4,
+                "selective_background_services_off" => GetManagedState(tweakKey),
+                "network_hardcore_mode" => GetManagedState(tweakKey),
+                "power_hardcore_mode" => IsPowerHardcoreModeEnabled(),
+                "timer_resolution_mode" => GetManagedState(tweakKey),
+                "background_apps_off" => GetRegistryDword(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications", "GlobalUserDisabled") == 1,
                 "low_latency_mode" =>
                     GetRegistryDword(Registry.CurrentUser, @"System\GameConfigStore", "GameDVR_Enabled") == 0 &&
                     GetRegistryDword(Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled") == 0 &&
@@ -1311,6 +1405,97 @@ public sealed class OptimizerService
         sb.AppendLine("Open NVIDIA Control Panel and set: Low Latency Mode=On/Ultra, Power Management=Prefer Maximum Performance, Shader Cache=On, V-Sync=Off.");
         return sb.ToString();
     }
+
+    private static string ToggleSelectiveBackgroundServices(bool disable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required.";
+        }
+
+        var sb = new StringBuilder();
+        var startType = disable ? "disabled" : "demand";
+        foreach (var service in new[] { "XboxGipSvc", "XblAuthManager", "XblGameSave", "Fax" })
+        {
+            sb.AppendLine(RunProcess("sc.exe", $"config {service} start= {startType}"));
+            sb.AppendLine(RunProcess("sc.exe", disable ? $"stop {service}" : $"start {service}"));
+        }
+
+        sb.AppendLine(RunProcess("sc.exe", $"config Spooler start= {(disable ? "disabled" : "auto")}"));
+        if (disable)
+        {
+            sb.AppendLine(RunProcess("sc.exe", "stop Spooler"));
+        }
+
+        sb.AppendLine(RunProcess("taskkill", disable ? "/IM OneDrive.exe /F" : "/IM OneDrive.exe"));
+        sb.AppendLine(RunProcess("taskkill", disable ? "/IM PhoneExperienceHost.exe /F" : "/IM PhoneExperienceHost.exe"));
+        return sb.ToString();
+    }
+
+    private static string ApplyPowerHardcoreMode(bool enable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required.";
+        }
+
+        var sb = new StringBuilder();
+        if (enable)
+        {
+            sb.AppendLine(ApplyUltimatePowerPlan(true));
+            sb.AppendLine(RunProcess("powercfg", "/setacvalueindex scheme_current 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0"));
+            sb.AppendLine(RunProcess("powercfg", "/setdcvalueindex scheme_current 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0"));
+            sb.AppendLine("Power hardcore mode enabled.");
+        }
+        else
+        {
+            sb.AppendLine(RunProcess("powercfg", "/setacvalueindex scheme_current 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 2"));
+            sb.AppendLine(RunProcess("powercfg", "/setdcvalueindex scheme_current 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 2"));
+            sb.AppendLine(ApplyUltimatePowerPlan(false));
+            sb.AppendLine("Power hardcore mode disabled.");
+        }
+
+        sb.AppendLine(RunProcess("powercfg", "/setactive scheme_current"));
+        return sb.ToString();
+    }
+
+    private static bool? IsPowerHardcoreModeEnabled()
+    {
+        try
+        {
+            var q = RunProcessRaw("powercfg", "/q scheme_current 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5");
+            return q.Contains("0x00000000", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ToggleTimerResolutionMode(bool enable)
+    {
+        if (enable)
+        {
+            if (NtSetTimerResolution(5000, true, out _) == 0)
+            {
+                return "High timer resolution requested (0.5 ms).";
+            }
+
+            return "Failed to request timer resolution.";
+        }
+
+        _ = NtSetTimerResolution(5000, false, out _);
+        return "Timer resolution request released.";
+    }
+
+    private static bool IsServiceStopped(string serviceName)
+    {
+        var output = RunProcessRaw("sc.exe", $"query {serviceName}");
+        return output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [DllImport("ntdll.dll")]
+    private static extern int NtSetTimerResolution(uint desiredResolution, bool setResolution, out uint currentResolution);
 
     private static string RunProcess(string fileName, string arguments)
     {

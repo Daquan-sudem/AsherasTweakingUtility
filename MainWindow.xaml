@@ -238,7 +238,7 @@
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,14">
                 <Button Style="{StaticResource ActionButtonStyle}" Click="AnalyzeButton_Click" Content="Analyze"/>
                 <Button Style="{StaticResource ActionButtonStyle}" Click="ApplyProfileButton_Click" Content="Apply Gaming Profile"/>
-                <Button Style="{StaticResource ActionButtonStyle}" Click="RollbackButton_Click" Content="Rollback"/>
+                <Button Style="{StaticResource ActionButtonStyle}" Click="RollbackButton_Click" Content="Revert to Default"/>
                 <Button Style="{StaticResource ActionButtonStyle}" Click="CheckUpdatesButton_Click" Content="Check Updates"/>
                 <Button Style="{StaticResource ActionButtonStyle}" Click="DownloadUpdateButton_Click" Content="Download Update"/>
                 <Border Background="#0E1A2D" BorderBrush="#2A4E7F" BorderThickness="1" CornerRadius="8" Padding="14,8" VerticalAlignment="Center">
@@ -637,7 +637,7 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Foreground="#F7FBFF" FontSize="20" FontWeight="SemiBold" Text="Activity Console"/>
+                    <TextBlock Foreground="#F7FBFF" FontSize="20" FontWeight="SemiBold" Text="View Changes Log"/>
 
                     <TextBox Grid.Row="1"
                              Name="OutputTextBox"

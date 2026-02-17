@@ -1200,6 +1200,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
         _tweakCards.Add(new TweakCardItem
         {
+            Key = "wu_tournament_mode",
+            Title = "Windows Update Tournament Mode",
+            Description = "Temporarily stops Windows Update service during matches and restores it when disabled."
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "sysmain_off",
+            Title = "SysMain Off",
+            Description = "Toggles SysMain (Superfetch) service to reduce background disk spikes on affected systems."
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "search_indexing_off",
+            Title = "Search Indexing Off",
+            Description = "Toggles Windows Search indexing service to reduce background indexing activity."
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "selective_background_services_off",
+            Title = "Selective Background Services Off",
+            Description = "Stops a curated optional service/process set (Xbox, OneDrive, Phone Link, Fax, optional Spooler).",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "network_hardcore_mode",
+            Title = "Network Hardcore Mode",
+            Description = "Applies NIC performance settings, resets stack, flushes DNS, and renews adapter IP.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "power_hardcore_mode",
+            Title = "Power Hardcore Mode",
+            Description = "Ultimate power profile + CPU min 100% + PCIe/USB power savings off for latency consistency.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "timer_resolution_mode",
+            Title = "Timer Resolution Mode",
+            Description = "Forces high timer resolution while enabled and restores default when disabled/app exits.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "background_apps_off",
+            Title = "Background Apps Off",
+            Description = "Disables Windows background app permission via registry policy toggle."
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
             Key = "hibernation_off",
             Title = "Hibernation Off",
             Description = "Disables hibernation to reduce disk footprint and hiberfile writes."
@@ -2074,7 +2126,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "network_driver_optimize" or
             "memory_integrity_off" or
             "gpu_msi_mode" or
-            "hpet_tune_off";
+            "hpet_tune_off" or
+            "network_hardcore_mode" or
+            "power_hardcore_mode";
     }
 
     private static string? ExtractUpdaterPath(string text)
