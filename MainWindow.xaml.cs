@@ -1115,6 +1115,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
         _tweakCards.Add(new TweakCardItem
         {
+            Key = "ultimate_power_plan",
+            Title = "Ultimate Power Plan",
+            Description = "Enables Ultimate Performance, sets minimum CPU state to 100%, and disables USB selective suspend.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "memory_integrity_off",
+            Title = "Memory Integrity Off",
+            Description = "Turns off Core Isolation Memory Integrity (security tradeoff).",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "gpu_msi_mode",
+            Title = "GPU MSI Mode",
+            Description = "Enables MSI interrupt mode for detected PCI GPUs (advanced).",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "hpet_tune_off",
+            Title = "HPET Tune Off",
+            Description = "Disables forced platform clock usage via boot config (hardware-dependent).",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "startup_cleanup_assist",
+            Title = "Startup Cleanup Assist",
+            Description = "Opens startup app controls and records managed state for clean boot workflow."
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
+            Key = "nvidia_latency_profile",
+            Title = "NVIDIA Latency Profile",
+            Description = "Applies available NVIDIA CLI settings and opens guidance for low-latency control panel values.",
+            WarningText = "1 WARNING"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
             Key = "hibernation_off",
             Title = "Hibernation Off",
             Description = "Disables hibernation to reduce disk footprint and hiberfile writes."
@@ -1983,7 +2024,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private static bool IsRestartRequiredTweak(string tweakKey)
     {
-        return tweakKey is "fast_startup_off" or "smb1_off" or "network_driver_optimize";
+        return tweakKey is
+            "fast_startup_off" or
+            "smb1_off" or
+            "network_driver_optimize" or
+            "memory_integrity_off" or
+            "gpu_msi_mode" or
+            "hpet_tune_off";
     }
 
     private static double ClampPercent(double value)

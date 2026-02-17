@@ -641,6 +641,56 @@ public sealed class OptimizerService
                         sb.AppendLine("Restart required to fully apply NIC driver-level changes.");
                         break;
 
+                    case "ultimate_power_plan":
+                        sb.AppendLine(ApplyUltimatePowerPlan(enabled));
+                        break;
+
+                    case "memory_integrity_off":
+                        if (!IsRunningAsAdmin())
+                        {
+                            sb.AppendLine("Admin required.");
+                        }
+                        else
+                        {
+                            SetRegistryDword(
+                                Registry.LocalMachine,
+                                @"SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity",
+                                "Enabled",
+                                enabled ? 0 : 1);
+                            sb.AppendLine("Memory Integrity setting updated. Restart required.");
+                        }
+                        break;
+
+                    case "gpu_msi_mode":
+                        sb.AppendLine(SetGpuMsiMode(enabled));
+                        break;
+
+                    case "hpet_tune_off":
+                        if (!IsRunningAsAdmin())
+                        {
+                            sb.AppendLine("Admin required.");
+                        }
+                        else
+                        {
+                            var cmd = enabled
+                                ? "/deletevalue useplatformclock"
+                                : "/set useplatformclock true";
+                            sb.AppendLine(RunProcess("bcdedit", cmd));
+                            sb.AppendLine("HPET/clock policy updated. Restart required.");
+                        }
+                        break;
+
+                    case "startup_cleanup_assist":
+                        _ = RunProcess("explorer.exe", "ms-settings:startupapps");
+                        SetManagedState(tweakKey, enabled);
+                        sb.AppendLine("Opened Startup Apps settings for manual cleanup.");
+                        break;
+
+                    case "nvidia_latency_profile":
+                        sb.AppendLine(ApplyNvidiaLatencyProfile(enabled));
+                        SetManagedState(tweakKey, enabled);
+                        break;
+
                     case "low_latency_mode":
                         SetRegistryDword(
                             Registry.CurrentUser,
@@ -809,6 +859,12 @@ public sealed class OptimizerService
                 "amd_service_trim" => GetManagedState(tweakKey),
                 "nudge_blocker" => GetRegistryDword(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement", "ScoobeSystemSettingEnabled") == 0,
                 "network_driver_optimize" => GetManagedState(tweakKey),
+                "ultimate_power_plan" => IsUltimatePlanActive(),
+                "memory_integrity_off" => GetRegistryDword(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled") == 0,
+                "gpu_msi_mode" => IsGpuMsiEnabled(),
+                "hpet_tune_off" => IsHpetTuneOff(),
+                "startup_cleanup_assist" => GetManagedState(tweakKey),
+                "nvidia_latency_profile" => GetManagedState(tweakKey),
                 "low_latency_mode" =>
                     GetRegistryDword(Registry.CurrentUser, @"System\GameConfigStore", "GameDVR_Enabled") == 0 &&
                     GetRegistryDword(Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR", "AppCaptureEnabled") == 0 &&
@@ -1079,10 +1135,163 @@ public sealed class OptimizerService
             $"try {{ Set-NetAdapterPowerManagement -Name $a.Name -AllowComputerToTurnOffDevice {powerToggle} -ErrorAction Stop }} catch {{ }};" +
             $"try {{ Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName 'Interrupt Moderation' -DisplayValue '{interruptModeration}' -NoRestart -ErrorAction Stop }} catch {{ }};" +
             $"try {{ Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName 'Energy-Efficient Ethernet' -DisplayValue '{eee}' -NoRestart -ErrorAction Stop }} catch {{ }};" +
+            $"try {{ Set-NetAdapterAdvancedProperty -Name $a.Name -DisplayName 'Speed & Duplex' -DisplayValue '{(enable ? "1.0 Gbps Full Duplex" : "Auto Negotiation")}' -NoRestart -ErrorAction Stop }} catch {{ }};" +
             "}";
 
         var result = RunProcess("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -Command \"{script}\"");
         return string.IsNullOrWhiteSpace(result) ? "Network driver optimization command completed." : result;
+    }
+
+    private static string ApplyUltimatePowerPlan(bool enable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required.";
+        }
+
+        var sb = new StringBuilder();
+        if (enable)
+        {
+            sb.AppendLine(RunProcess("powercfg", "/duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61"));
+            var list = RunProcessRaw("powercfg", "/list");
+            var ultimateGuid = list
+                .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+                .Where(l => l.Contains("Ultimate Performance", StringComparison.OrdinalIgnoreCase))
+                .Select(l => Regex.Match(l, "([A-Fa-f0-9-]{36})"))
+                .Where(m => m.Success)
+                .Select(m => m.Value)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(ultimateGuid))
+            {
+                sb.AppendLine(RunProcess("powercfg", $"/setactive {ultimateGuid}"));
+            }
+        }
+
+        sb.AppendLine(RunProcess("powercfg", "/setacvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100"));
+        sb.AppendLine(RunProcess("powercfg", "/setdcvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100"));
+        sb.AppendLine(RunProcess("powercfg", $"/setacvalueindex scheme_current 2a737441-1930-4402-8d77-b2bebba308a3 4f971e89-eebd-4455-a8de-9e59040e7347 {(enable ? 0 : 1)}"));
+        sb.AppendLine(RunProcess("powercfg", "/setactive scheme_current"));
+        return sb.ToString();
+    }
+
+    private static bool? IsUltimatePlanActive()
+    {
+        try
+        {
+            var text = RunProcessRaw("powercfg", "/getactivescheme");
+            if (text.Contains("Ultimate Performance", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return false;
+    }
+
+    private static string SetGpuMsiMode(bool enable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required.";
+        }
+
+        var changed = 0;
+        try
+        {
+            using var gpuSearcher = new System.Management.ManagementObjectSearcher("SELECT PNPDeviceID FROM Win32_VideoController");
+            foreach (var obj in gpuSearcher.Get().OfType<System.Management.ManagementObject>())
+            {
+                var pnp = obj["PNPDeviceID"]?.ToString();
+                if (string.IsNullOrWhiteSpace(pnp) || !pnp.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var path = $@"SYSTEM\CurrentControlSet\Enum\{pnp}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties";
+                using var key = Registry.LocalMachine.CreateSubKey(path, true);
+                if (key is null)
+                {
+                    continue;
+                }
+
+                key.SetValue("MSISupported", enable ? 1 : 0, RegistryValueKind.DWord);
+                changed++;
+            }
+        }
+        catch (Exception ex)
+        {
+            return $"GPU MSI operation failed: {ex.Message}";
+        }
+
+        return changed == 0
+            ? "No compatible PCI GPU registry path found."
+            : $"GPU MSI mode updated for {changed} device(s). Restart required.";
+    }
+
+    private static bool? IsGpuMsiEnabled()
+    {
+        try
+        {
+            using var gpuSearcher = new System.Management.ManagementObjectSearcher("SELECT PNPDeviceID FROM Win32_VideoController");
+            var found = false;
+            foreach (var obj in gpuSearcher.Get().OfType<System.Management.ManagementObject>())
+            {
+                var pnp = obj["PNPDeviceID"]?.ToString();
+                if (string.IsNullOrWhiteSpace(pnp) || !pnp.StartsWith("PCI\\", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                found = true;
+                using var key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{pnp}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties", false);
+                var val = key?.GetValue("MSISupported") as int?;
+                if (val != 1)
+                {
+                    return false;
+                }
+            }
+
+            return found ? true : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool? IsHpetTuneOff()
+    {
+        try
+        {
+            var outText = RunProcessRaw("bcdedit", "/enum");
+            return !Regex.IsMatch(outText, @"useplatformclock\s+Yes", RegexOptions.IgnoreCase);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ApplyNvidiaLatencyProfile(bool enable)
+    {
+        var sb = new StringBuilder();
+        if (File.Exists(Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\NVIDIA Corporation\NVSMI\nvidia-smi.exe")))
+        {
+            var exe = Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\NVIDIA Corporation\NVSMI\nvidia-smi.exe");
+            sb.AppendLine(RunProcess(exe, $"-pm {(enable ? 1 : 0)}"));
+        }
+        else
+        {
+            sb.AppendLine("nvidia-smi not found; applied guidance only.");
+        }
+
+        _ = RunProcess("nvcplui.exe", "");
+        sb.AppendLine("Open NVIDIA Control Panel and set: Low Latency Mode=On/Ultra, Power Management=Prefer Maximum Performance, Shader Cache=On, V-Sync=Off.");
+        return sb.ToString();
     }
 
     private static string RunProcess(string fileName, string arguments)
