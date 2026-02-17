@@ -2534,6 +2534,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "UP_TO_DATE",
             "UPDATE_AVAILABLE",
             "UPDATE_CHECK_FAILED",
+            "UPDATE_DOWNLOAD_FAILED",
             "UPDATE_UNKNOWN",
             "READY_FOR_RESTART"
         };
