@@ -1281,6 +1281,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
         _tweakCards.Add(new TweakCardItem
         {
+            Key = "process_target_60_mode",
+            Title = "Process Target (60) Mode",
+            Description = "Aggressively trims optional services/background apps to push toward ~60 total processes.",
+            WarningText = "HIGH RISK"
+        });
+        _tweakCards.Add(new TweakCardItem
+        {
             Key = "nudge_blocker",
             Title = "Nudge Blocker",
             Description = "Reduces notifications and feedback prompts during sessions."
@@ -1489,6 +1496,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "cloud_sync_off" => "Stops Windows cloud sync in background.",
             "do_solo_mode" => "Limits Delivery Optimization peer traffic in background.",
             "process_count_reduction" => "Changes service host splitting to reduce process count.",
+            "process_target_60_mode" => "Aggressive process trim mode. Tries to lower process count close to 60, but exact count is not guaranteed.",
             "nudge_blocker" => "Reduces popups, tips, and engagement prompts.",
             "low_latency_mode" => "Applies game scheduling and DVR/network settings for lower input delay.",
             "network_driver_optimize" => "Applies NIC settings focused on stable low-latency gameplay.",
@@ -2497,12 +2505,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "gpu_msi_mode" or
             "hpet_tune_off" or
             "network_hardcore_mode" or
-            "power_hardcore_mode";
+            "power_hardcore_mode" or
+            "process_target_60_mode";
     }
 
     private static bool IsHighRiskTweak(string tweakKey)
     {
-        return tweakKey is "hardcore_service_trim";
+        return tweakKey is "hardcore_service_trim" or "process_target_60_mode";
     }
 
     private static string? ExtractUpdaterPath(string text)

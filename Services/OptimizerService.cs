@@ -674,6 +674,11 @@ public sealed class OptimizerService
                         }
                         break;
 
+                    case "process_target_60_mode":
+                        sb.AppendLine(ApplyProcessTargetMode(enabled));
+                        SetManagedState(tweakKey, enabled);
+                        break;
+
                     case "amd_chill_off":
                     case "amd_power_hold":
                     case "amd_service_trim":
@@ -1000,6 +1005,7 @@ public sealed class OptimizerService
                 "cloud_sync_off" => GetRegistryDword(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\SettingSync", "SyncPolicy") == 5,
                 "do_solo_mode" => GetRegistryDword(Registry.LocalMachine, @"SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization", "DODownloadMode") == 0,
                 "process_count_reduction" => GetRegistryDword(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control", "SvcHostSplitThresholdInKB") == 3670016,
+                "process_target_60_mode" => GetManagedState(tweakKey),
                 "amd_chill_off" => GetManagedState(tweakKey),
                 "amd_power_hold" => GetManagedState(tweakKey),
                 "amd_service_trim" => GetManagedState(tweakKey),
@@ -1651,6 +1657,65 @@ public sealed class OptimizerService
         if (hardcore)
         {
             sb.AppendLine("Warning: Hardcore trim may disable notifications, search indexing, printing, or Xbox features until reverted.");
+        }
+
+        return sb.ToString();
+    }
+
+    private static string ApplyProcessTargetMode(bool enable)
+    {
+        if (!IsRunningAsAdmin())
+        {
+            return "Admin required.";
+        }
+
+        var sb = new StringBuilder();
+        var before = Process.GetProcesses().Length;
+        sb.AppendLine($"Processes before: {before}");
+
+        if (enable)
+        {
+            // 1) Consolidate service hosts where supported.
+            SetRegistryDword(
+                Registry.LocalMachine,
+                @"SYSTEM\CurrentControlSet\Control",
+                "SvcHostSplitThresholdInKB",
+                3670016);
+            sb.AppendLine("Applied service host consolidation.");
+
+            // 2) Disable optional services in hardcore trim set.
+            sb.AppendLine(ToggleCompetitiveServiceTrim(true, hardcore: true));
+
+            // 3) Close common non-essential user processes.
+            foreach (var proc in new[] { "OneDrive.exe", "PhoneExperienceHost.exe", "YourPhone.exe", "XboxPcApp.exe", "Widgets.exe" })
+            {
+                sb.AppendLine(RunProcess("taskkill", $"/IM {proc} /F"));
+            }
+
+            sb.AppendLine("Target mode enabled. Restart Windows for maximum process-count reduction.");
+        }
+        else
+        {
+            // Revert registry/process-service behavior.
+            SetRegistryDword(
+                Registry.LocalMachine,
+                @"SYSTEM\CurrentControlSet\Control",
+                "SvcHostSplitThresholdInKB",
+                0);
+            sb.AppendLine("Reverted service host consolidation.");
+            sb.AppendLine(ToggleCompetitiveServiceTrim(false, hardcore: true));
+            sb.AppendLine("Target mode disabled.");
+        }
+
+        try
+        {
+            var after = Process.GetProcesses().Length;
+            sb.AppendLine($"Processes after: {after}");
+            sb.AppendLine("Note: Exact 60 cannot be guaranteed on every hardware/software setup.");
+        }
+        catch
+        {
+            sb.AppendLine("Could not measure process count after apply.");
         }
 
         return sb.ToString();
