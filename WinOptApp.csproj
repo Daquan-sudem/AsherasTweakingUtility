@@ -16,5 +16,10 @@
     <PackageReference Include="System.Management" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\github-profile.png" />
+    <Resource Include="Assets\github-profile.ico" />
+  </ItemGroup>
+
 </Project>
 

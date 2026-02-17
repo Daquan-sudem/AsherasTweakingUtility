@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:WinOptApp"
         mc:Ignorable="d"
         Title="Ashera's Tweaking Utility"
-        Icon="Assets/github-profile.ico"
+        Icon="pack://application:,,,/Assets/github-profile.ico"
         Height="760"
         Width="1280"
         MinHeight="700"
@@ -222,7 +222,7 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#2A4E7F" BorderThickness="1" Margin="0,0,8,0">
                             <Border.Background>
-                                <ImageBrush ImageSource="Assets/github-profile.png" Stretch="UniformToFill"/>
+                                <ImageBrush ImageSource="pack://application:,,,/Assets/github-profile.png" Stretch="UniformToFill"/>
                             </Border.Background>
                         </Border>
                         <TextBlock Foreground="#F7FBFF" FontSize="24" FontWeight="Bold" Text="Ashera's Tweaking Utility" VerticalAlignment="Center"/>
@@ -257,7 +257,7 @@
                         <StackPanel Orientation="Horizontal">
                             <Border Width="34" Height="34" CornerRadius="17" BorderBrush="#315782" BorderThickness="1" Margin="0,0,8,0">
                                 <Border.Background>
-                                    <ImageBrush ImageSource="Assets/github-profile.png" Stretch="UniformToFill"/>
+                                    <ImageBrush ImageSource="pack://application:,,,/Assets/github-profile.png" Stretch="UniformToFill"/>
                                 </Border.Background>
                             </Border>
                             <StackPanel>
