@@ -151,13 +151,17 @@
             <Setter Property="TextElement.Foreground" Value="#EAF4FF"/>
             <Setter Property="BorderBrush" Value="#315782"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="ItemContainerStyle">
                 <Setter.Value>
                     <Style TargetType="ComboBoxItem">
                         <Setter Property="Foreground" Value="#EAF4FF"/>
                         <Setter Property="Background" Value="#0D1728"/>
-                        <Setter Property="Padding" Value="6,4"/>
+                        <Setter Property="Padding" Value="8,5"/>
                         <Style.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
                                 <Setter Property="Background" Value="#1B3558"/>
@@ -170,6 +174,21 @@
                     </Style>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource DarkComboBoxStyle}"/>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#EAF4FF"/>
+            <Setter Property="Background" Value="#0D1728"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#1B3558"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#234772"/>
+                    <Setter Property="Foreground" Value="#F7FBFF"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
@@ -251,17 +270,22 @@
                 </Border>
             </WrapPanel>
 
-            <Grid Grid.Row="2" Margin="0,0,0,14" Visibility="{Binding IsDashboardVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+            <ScrollViewer Grid.Row="2"
+                          Margin="0,0,0,14"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsDashboardVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Grid.Column="0" CornerRadius="14" BorderBrush="#2A4E7F" BorderThickness="1" Padding="14" Margin="0,0,10,10">
                     <Border.Background>
@@ -367,7 +391,7 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="2" Grid.Column="0" CornerRadius="14" BorderBrush="#2A4E7F" BorderThickness="1" Padding="14" Margin="0,0,10,0">
+                <Border Grid.Row="2" Grid.Column="0" CornerRadius="14" BorderBrush="#2A4E7F" BorderThickness="1" Padding="14" Margin="0,0,10,0" MinHeight="220">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                             <GradientStop Color="#08111F" Offset="0"/>
@@ -383,7 +407,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Row="2" Grid.Column="1" CornerRadius="14" BorderBrush="#2A4E7F" BorderThickness="1" Padding="14">
+                <Border Grid.Row="2" Grid.Column="1" CornerRadius="14" BorderBrush="#2A4E7F" BorderThickness="1" Padding="14" MinHeight="220">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                             <GradientStop Color="#08111F" Offset="0"/>
@@ -396,7 +420,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Foreground="#F7FBFF" FontSize="16" FontWeight="SemiBold" Text="Temperature Monitor"/>
                         <TextBlock Grid.Row="1" Foreground="#DCEBFF" FontSize="34" FontWeight="Bold" Margin="0,6,0,0" Text="{Binding TemperatureValueText}"/>
@@ -443,7 +467,8 @@
                         <Button Grid.Row="0" Grid.Column="4" Grid.RowSpan="2" Margin="8,0,0,0" Style="{StaticResource ActionButtonStyle}" Content="Refresh" Click="RefreshControllerDevicesButton_Click"/>
                     </Grid>
                 </Border>
-            </Grid>
+                </Grid>
+            </ScrollViewer>
 
             <Border Grid.Row="2"
                     Background="{StaticResource PanelBg}"
