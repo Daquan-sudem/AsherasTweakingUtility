@@ -705,6 +705,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Foreground="#F7FBFF" FontSize="22" FontWeight="SemiBold" Text="App Optimizer"/>
+                    <TextBlock Grid.Row="1" Foreground="#A6BCD6" Margin="0,40,0,0" Text="Select apps to tune, open target settings, and guide actions quickly."/>
                     <WrapPanel Grid.Row="1" Margin="0,10,0,8">
                         <Button Style="{StaticResource ActionButtonStyle}" Content="Refresh List" Click="RefreshAppOptimizerButton_Click"/>
                         <Button Style="{StaticResource ActionButtonStyle}" Content="Guide Selected" Click="GuideSelectedAppsButton_Click"/>
@@ -714,7 +715,7 @@
 
                     <DataGrid Grid.Row="2"
                               x:Name="AppOptimizerDataGrid"
-                              Margin="0,4,0,0"
+                              Margin="0,8,0,0"
                               AutoGenerateColumns="False"
                               HeadersVisibility="Column"
                               CanUserAddRows="False"
@@ -728,14 +729,46 @@
                               Foreground="#EAF4FF"
                               AlternatingRowBackground="#0E1D33"
                               BorderBrush="#29476F"
-                              BorderThickness="1">
+                              BorderThickness="1"
+                              RowHeight="44">
+                        <DataGrid.Resources>
+                            <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="#0A1322"/>
+                                <Setter Property="Foreground" Value="#EAF4FF"/>
+                                <Setter Property="BorderBrush" Value="#223A5E"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#162944"/>
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#234772"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                            <Style TargetType="DataGridCell">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#EAF4FF"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                            </Style>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#132742"/>
+                                <Setter Property="Foreground" Value="#F7FBFF"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="BorderBrush" Value="#315782"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                <Setter Property="Padding" Value="8,6"/>
+                            </Style>
+                        </DataGrid.Resources>
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="Pick" Binding="{Binding IsSelected, Mode=TwoWay}" Width="56"/>
                             <DataGridTemplateColumn Header="Icon" Width="58">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Border Width="28" Height="28" CornerRadius="14" Background="#163153" BorderBrush="#315782" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding IconText}" Foreground="#DCEBFF" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="#10243E" BorderBrush="#315782" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Image Source="{Binding IconImage}" Width="20" Height="20" Stretch="Uniform"/>
                                         </Border>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>

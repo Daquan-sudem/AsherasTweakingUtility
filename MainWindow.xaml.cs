@@ -10,7 +10,10 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
 using System.Windows.Threading;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using WinOptApp.Models;
 using WinOptApp.Services;
@@ -2356,6 +2359,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         _appOptimizationItems.Clear();
         HashSet<string> running = new(StringComparer.OrdinalIgnoreCase);
+        var runningProcessPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
             foreach (var p in Process.GetProcesses())
@@ -2363,6 +2367,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (!string.IsNullOrWhiteSpace(p.ProcessName))
                 {
                     running.Add(p.ProcessName.Trim());
+                    try
+                    {
+                        var path = p.MainModule?.FileName;
+                        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                        {
+                            runningProcessPaths[p.ProcessName.Trim()] = path;
+                        }
+                    }
+                    catch
+                    {
+                        // access denied for some processes
+                    }
                 }
             }
         }
@@ -2386,6 +2402,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ActionLabel = def.ActionLabel,
                 Notes = def.Notes,
                 TargetUri = def.TargetUri,
+                IconImage = ResolveAppIcon(def, runningProcessPaths),
                 IconText = GetIconText(def.Name),
                 StateText = state
             });
@@ -2458,6 +2475,93 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return name[..1].ToUpperInvariant();
+    }
+
+    private static ImageSource? ResolveAppIcon(AppRecommendationDefinition def, IReadOnlyDictionary<string, string> runningPaths)
+    {
+        foreach (var hint in def.ProcessHints)
+        {
+            if (runningPaths.TryGetValue(hint, out var runningPath))
+            {
+                var img = TryExtractIconImage(runningPath);
+                if (img is not null)
+                {
+                    return img;
+                }
+            }
+        }
+
+        foreach (var candidate in GetAppIconCandidates(def.Name))
+        {
+            var img = TryExtractIconImage(candidate);
+            if (img is not null)
+            {
+                return img;
+            }
+        }
+
+        // Fallback to shell icon.
+        return TryExtractIconImage(Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\shell32.dll"));
+    }
+
+    private static IEnumerable<string> GetAppIconCandidates(string appName)
+    {
+        if (appName.Contains("Discord", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%LocalAppData%\Discord\Update.exe");
+        }
+        else if (appName.Contains("OneDrive", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%LocalAppData%\Microsoft\OneDrive\OneDrive.exe");
+        }
+        else if (appName.Contains("Steam", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%ProgramFiles(x86)%\Steam\steam.exe");
+        }
+        else if (appName.Contains("Epic", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%ProgramFiles(x86)%\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe");
+        }
+        else if (appName.Contains("Teams", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%LocalAppData%\Microsoft\Teams\current\Teams.exe");
+        }
+        else if (appName.Contains("Xbox", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\XboxAppServices.exe");
+        }
+
+        yield return Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\shell32.dll");
+    }
+
+    private static ImageSource? TryExtractIconImage(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                return null;
+            }
+
+            var flags = ShgfiIcon | ShgfiLargeIcon;
+            _ = SHGetFileInfo(path, 0, out var shfi, (uint)Marshal.SizeOf<SHFILEINFO>(), flags);
+            if (shfi.hIcon == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            var source = Imaging.CreateBitmapSourceFromHIcon(
+                shfi.hIcon,
+                Int32Rect.Empty,
+                BitmapSizeOptions.FromWidthAndHeight(32, 32));
+            source.Freeze();
+            _ = DestroyIcon(shfi.hIcon);
+            return source;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void OpenTargetUri(string? uri)
@@ -2672,6 +2776,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static extern bool GlobalMemoryStatusEx([In, Out] MemoryStatusEx lpBuffer);
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetCursorPos(int x, int y);
+    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SHGetFileInfo(
+        string pszPath,
+        uint dwFileAttributes,
+        out SHFILEINFO psfi,
+        uint cbFileInfo,
+        uint uFlags);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
+    private const uint ShgfiIcon = 0x000000100;
+    private const uint ShgfiLargeIcon = 0x000000000;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct SHFILEINFO
+    {
+        public IntPtr hIcon;
+        public int iIcon;
+        public uint dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+        public string szTypeName;
+    }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private sealed class MemoryStatusEx
@@ -2708,6 +2836,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         public required string ActionLabel { get; init; }
         public required string Notes { get; init; }
         public required string TargetUri { get; init; }
+        public ImageSource? IconImage { get; init; }
         public required string IconText { get; init; }
         public required string StateText { get; init; }
 
