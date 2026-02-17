@@ -10,20 +10,20 @@
         Width="1280"
         MinHeight="700"
         MinWidth="1100"
-        Background="#06101D">
+        Background="#050A12">
     <Window.Resources>
-        <SolidColorBrush x:Key="PanelBg" Color="#0B1628"/>
-        <SolidColorBrush x:Key="PanelBorder" Color="#1D3557"/>
-        <SolidColorBrush x:Key="Accent" Color="#4B90F0"/>
+        <SolidColorBrush x:Key="PanelBg" Color="#0E182A"/>
+        <SolidColorBrush x:Key="PanelBorder" Color="#223A5E"/>
+        <SolidColorBrush x:Key="Accent" Color="#5AA2FF"/>
         <local:PercentageToArcConverter x:Key="PercentageToArcConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <Style x:Key="TweakCardBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="#08111F"/>
-            <Setter Property="BorderBrush" Value="#1D3557"/>
+            <Setter Property="Background" Value="#0A1322"/>
+            <Setter Property="BorderBrush" Value="#29476F"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="14"/>
-            <Setter Property="Margin" Value="0,0,14,14"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
         </Style>
         <Style x:Key="WarningBadgeStyle" TargetType="Border">
             <Setter Property="Background" Value="#123157"/>
@@ -75,47 +75,80 @@
             </Setter>
         </Style>
         <Style x:Key="NavButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#E9F3FF"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Background" Value="#0D1728"/>
+            <Setter Property="Foreground" Value="#EAF4FF"/>
+            <Setter Property="BorderBrush" Value="#223A5E"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Padding" Value="12,9"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Margin" Value="0,0,0,7"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="9"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#10223D"/>
-                    <Setter Property="BorderBrush" Value="#2A4E7F"/>
+                    <Setter Property="Background" Value="#132742"/>
+                    <Setter Property="BorderBrush" Value="#3C6AA2"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
         <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Foreground" Value="#F7FBFF"/>
-            <Setter Property="Background" Value="#112240"/>
-            <Setter Property="BorderBrush" Value="#2A4E7F"/>
+            <Setter Property="Foreground" Value="#F3F9FF"/>
+            <Setter Property="Background" Value="#12263F"/>
+            <Setter Property="BorderBrush" Value="#315782"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Padding" Value="14,8"/>
             <Setter Property="Margin" Value="0,0,10,0"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="8"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#16305B"/>
-                    <Setter Property="BorderBrush" Value="#4B90F0"/>
+                    <Setter Property="Background" Value="#1A3560"/>
+                    <Setter Property="BorderBrush" Value="#5AA2FF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
     <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#050A12" Offset="0"/>
+                <GradientStop Color="#0A1424" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Background="#08111F" BorderBrush="#1D3557" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="#091324" BorderBrush="#223A5E" BorderThickness="0,0,1,0">
             <Grid Margin="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>

@@ -20,7 +20,7 @@ namespace WinOptApp;
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly OptimizerService _optimizer = new();
-    private readonly DispatcherTimer _telemetryTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _telemetryTimer = new() { Interval = TimeSpan.FromMilliseconds(1400) };
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _cpuFrequencyCounter;
     private readonly PerformanceCounter? _cpuFrequencyPercentCounter;
@@ -64,6 +64,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private DateTime _lastTweakStateRefreshUtc = DateTime.MinValue;
     private DateTime _lastGpuRefreshUtc = DateTime.MinValue;
     private DateTime _lastTempRefreshUtc = DateTime.MinValue;
+    private DateTime _lastBackgroundTelemetryUtc = DateTime.MinValue;
     private long _lastNetworkBytesSent;
     private long _lastNetworkBytesReceived;
     private DateTime _lastNetworkSampleUtc = DateTime.MinValue;
@@ -739,6 +740,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshTelemetry()
     {
+        // Keep background sections responsive by skipping heavy WMI/network work when dashboard is hidden.
+        if (!IsDashboardVisible)
+        {
+            if ((DateTime.UtcNow - _lastBackgroundTelemetryUtc).TotalSeconds >= 5)
+            {
+                CpuUsage = ClampPercent(ReadCpuUsage());
+                CpuUsageText = $"{CpuUsage:0}%";
+                _lastBackgroundTelemetryUtc = DateTime.UtcNow;
+            }
+
+            if ((DateTime.UtcNow - _lastTweakStateRefreshUtc).TotalSeconds >= 6)
+            {
+                _ = RefreshTweakStatesAsync(showPopup: false);
+            }
+
+            return;
+        }
+
         CpuUsage = ClampPercent(ReadCpuUsage());
         CpuUsageText = $"{CpuUsage:0}%";
 
