@@ -67,6 +67,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isGeneralTweaksVisible;
     private bool _isGameProfilesVisible;
     private bool _isAppOptimizerVisible;
+    private bool _isOverclockingVisible;
     private DateTime _lastTweakStateRefreshUtc = DateTime.MinValue;
     private DateTime _lastGpuRefreshUtc = DateTime.MinValue;
     private DateTime _lastTempRefreshUtc = DateTime.MinValue;
@@ -651,6 +652,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool IsOverclockingVisible
+    {
+        get => _isOverclockingVisible;
+        private set
+        {
+            if (_isOverclockingVisible == value)
+            {
+                return;
+            }
+
+            _isOverclockingVisible = value;
+            OnPropertyChanged();
+        }
+    }
+
     private async void AnalyzeButton_Click(object sender, RoutedEventArgs e)
     {
         await ExecuteActionAsync("Analyzing...", _optimizer.AnalyzeAsync, "Analysis complete", "Analyze failed");
@@ -890,6 +906,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         OpenTargetUri("ms-settings:startupapps");
         StatusText = "Opened Startup Apps";
+    }
+
+    private void OverclockingButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetOverclockingView();
+        LoadControllerDevices();
+        StatusText = "Overclocking";
+        OutputTextBox.Text = "Overclocking view active. Configure controller polling and related latency settings.";
     }
 
     private async void TweakToggle_Changed(object sender, RoutedEventArgs e)
@@ -2449,6 +2473,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = false;
         IsAppOptimizerVisible = false;
+        IsOverclockingVisible = false;
     }
 
     private void SetGeneralTweaksView()
@@ -2457,6 +2482,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsGeneralTweaksVisible = true;
         IsGameProfilesVisible = false;
         IsAppOptimizerVisible = false;
+        IsOverclockingVisible = false;
     }
 
     private void SetGameProfilesView()
@@ -2465,6 +2491,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = true;
         IsAppOptimizerVisible = false;
+        IsOverclockingVisible = false;
     }
 
     private void SetAppOptimizerView()
@@ -2473,6 +2500,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         IsGeneralTweaksVisible = false;
         IsGameProfilesVisible = false;
         IsAppOptimizerVisible = true;
+        IsOverclockingVisible = false;
+    }
+
+    private void SetOverclockingView()
+    {
+        IsDashboardVisible = false;
+        IsGeneralTweaksVisible = false;
+        IsGameProfilesVisible = false;
+        IsAppOptimizerVisible = false;
+        IsOverclockingVisible = true;
     }
 
     private void LoadAppOptimizerItems()
